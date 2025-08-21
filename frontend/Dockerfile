@@ -1,5 +1,5 @@
 # Simplified Next.js Dockerfile for Render
-FROM node:18-alpine
+FROM node:18.18.0-alpine
 
 # Set working directory
 WORKDIR /app

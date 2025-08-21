@@ -28,8 +28,8 @@ COPY . .
 # Create directories
 RUN mkdir -p logs uploads
 
-# Run database setup
-RUN python create_admin.py || true
+# Skip database setup in Docker build - will run at startup
+# RUN python create_admin.py || true
 
 # Expose port
 EXPOSE 8000
