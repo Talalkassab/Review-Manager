@@ -51,6 +51,9 @@ WORKDIR /app
 COPY app ./app
 COPY alembic.ini .
 COPY alembic ./alembic
+COPY create_admin.py .
+COPY *.py ./
+COPY requirements.txt .
 
 # Create necessary directories
 RUN mkdir -p logs && \
