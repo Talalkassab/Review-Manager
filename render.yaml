@@ -1,0 +1,51 @@
+services:
+  # Backend API Service
+  - type: web
+    name: restaurant-ai-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    rootDir: backend
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: restaurant-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TWILIO_ACCOUNT_SID
+        value: YOUR_TWILIO_ACCOUNT_SID_HERE
+      - key: TWILIO_AUTH_TOKEN
+        value: YOUR_TWILIO_AUTH_TOKEN_HERE
+      - key: TWILIO_WHATSAPP_NUMBER
+        value: "whatsapp:+14155238886"
+      - key: TWILIO_SANDBOX_CODE
+        value: "join out-when"
+      - key: BACKEND_CORS_ORIGINS
+        value: "https://restaurant-ai-frontend.onrender.com,http://localhost:3000,http://localhost:3001"
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Frontend Service
+  - type: web
+    name: restaurant-ai-frontend
+    runtime: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    rootDir: frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://restaurant-ai-backend.onrender.com"
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+
+# Database
+databases:
+  - name: restaurant-db
+    plan: free
+    databaseName: restaurant_ai
+    user: restaurant_user

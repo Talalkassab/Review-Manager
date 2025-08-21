@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-cairo: var(--font-cairo);
+  --font-inter: var(--font-inter);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Arabic RTL Support */
+.font-cairo {
+  font-family: var(--font-cairo), system-ui, -apple-system, sans-serif;
+}
+
+.font-inter {
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+/* RTL Scrollbar Support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+/* Smooth transitions for language switching */
+* {
+  transition: font-family 0.2s ease;
+}

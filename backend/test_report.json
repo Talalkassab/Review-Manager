@@ -1,0 +1,19 @@
+{
+  "test_date": "2025-08-13T18:03:10.984418",
+  "system": "AI Customer Feedback Agent",
+  "version": "1.0.0",
+  "tests": {
+    "imports": false,
+    "agent_structure": false,
+    "api_structure": false,
+    "database_models": false,
+    "configuration": true,
+    "file_structure": true
+  },
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 2,
+    "success_rate": "33.3%",
+    "status": "FAILED"
+  }
+}
