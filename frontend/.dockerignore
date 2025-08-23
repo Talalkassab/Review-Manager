@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+test-results/
+playwright-report/
+playwright/
+*.test.js
+*.test.ts
+test-*.js
+e2e/
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Production
+*.production
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment files (will be provided by Render)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Python test files
+*.py
+api_test.py
+
+# Screenshots and images  
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Documentation
+*.md
+docs/
+
+# Development/debugging files
+debug-*.js
+demo*.js
+live-*.js
+quick-*.js
+final-*.js
+playwright*.js
+test-*.js
+customer-visit-test.js
+
+# Config files not needed in production build
+playwright.config.js
+tsconfig.app.json
+tsconfig.node.json
+vite.config.ts

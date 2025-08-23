@@ -1,0 +1,81 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files (will be provided by Render)
+.env
+.env.local
+.env.production
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# Documentation and screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.md
+docs/
+
+# Development scripts (not needed in production)
+test_*.py
+demo_*.py
+create_*.py
+cleanup_*.py
+monitor_*.py
+simulate_*.py
+resend_*.py
+simple_*.py
+start_server.py
+
+# Scripts directory (development only)
+scripts/
+
+# Test files
+test_report.json
+*.test.py
+*_test.py
