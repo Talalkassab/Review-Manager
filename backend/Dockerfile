@@ -34,13 +34,8 @@ RUN mkdir -p logs uploads
 # Expose port
 EXPOSE 8000
 
-# Create startup script
-RUN echo '#!/bin/sh\n\
-echo "Running database migrations..."\n\
-alembic upgrade head || echo "Migration failed or not needed"\n\
-echo "Starting application..."\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > /app/start.sh && \
-    chmod +x /app/start.sh
-
-# Start application
-CMD ["/app/start.sh"]
+# Start application with migrations
+CMD sh -c "echo 'Running database migrations...' && \
+    alembic upgrade head || echo 'Migration failed or not needed' && \
+    echo 'Starting application...' && \
+    exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
