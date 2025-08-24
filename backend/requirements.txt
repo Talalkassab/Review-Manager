@@ -90,7 +90,7 @@ slowapi==0.1.9  # Rate limiting
 python-slugify==8.0.1  # URL slugs
 phonenumbers==8.13.26  # Phone number validation
 langdetect==1.0.9  # Language detection
-pandas==2.1.4  # Data analysis (for exports)
+pandas==2.2.3  # Data analysis (for exports) - updated for better compatibility
 openpyxl==3.1.2  # Excel file handling
 
 # Metrics and monitoring
@@ -105,7 +105,7 @@ aiofiles==23.2.0  # Async file operations
 aiocache==0.12.2
 
 # JSON handling
-orjson==3.9.10  # Fast JSON serialization
+orjson==3.10.12  # Fast JSON serialization - updated for better compatibility
 
 # Security
 cryptography==41.0.7
