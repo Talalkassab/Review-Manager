@@ -108,4 +108,4 @@ aiocache==0.12.2
 orjson==3.9.10  # Fast JSON serialization
 
 # Security
-cryptography==41.0.8
+cryptography==41.0.7
