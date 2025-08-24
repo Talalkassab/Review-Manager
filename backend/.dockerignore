@@ -30,10 +30,11 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Environment files (will be provided by Render)
+# Environment files (will be provided by Railway)
 .env
 .env.local
 .env.production
+.env.development
 
 # Database files
 *.db
@@ -44,10 +45,8 @@ htmlcov/
 logs/
 *.log
 
-# Docker
-Dockerfile
+# Docker (keep Railway Dockerfile)
 docker-compose.yml
-.dockerignore
 
 # Git
 .git/
@@ -59,7 +58,15 @@ docker-compose.yml
 *.jpeg
 *.gif
 *.md
+!README.md
 docs/
+
+# Railway specific ignores
+.railway/
+Dockerfile.railway.bak
+render.yaml
+build_render.sh
+requirements-dev.txt
 
 # Development scripts (not needed in production)
 test_*.py
