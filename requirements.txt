@@ -78,8 +78,10 @@ python-slugify==8.0.1
 phonenumbers==8.13.26
 langdetect==1.0.9
 
-# Data handling
+# Data handling & Scientific Computing
 pandas==2.1.4
+scipy==1.11.4
+numpy==1.26.4
 openpyxl==3.1.2
 
 # File handling
