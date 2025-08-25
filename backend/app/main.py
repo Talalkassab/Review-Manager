@@ -23,6 +23,7 @@ from .api import (
     campaigns_router,
     whatsapp_router
 )
+# Force deployment - 2025-08-25 v2
 
 logger = get_logger(__name__)
 
