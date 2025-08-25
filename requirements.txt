@@ -1,3 +1,94 @@
-# This is a placeholder - the actual requirements are in backend/requirements.txt
-# Railway: Please use the backend directory for the actual application
--r backend/requirements.txt
+# Railway optimized requirements.txt
+# Resolves crewai-tools, Pillow, cryptography conflicts
+
+# Core security and crypto (install first to avoid conflicts)
+cryptography==41.0.7
+
+# Image processing (install early with system dependencies)
+Pillow==10.4.0
+
+# FastAPI and ASGI core
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# Database (PostgreSQL optimized for Railway)
+sqlalchemy==2.0.23
+alembic==1.12.1
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# CrewAI - Multi-Agent System (install after core dependencies)
+crewai==0.5.0
+
+# Authentication & Security  
+fastapi-users[sqlalchemy]==12.1.3
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+bcrypt==4.1.1
+
+# HTTP Requests
+httpx==0.25.2
+aiohttp==3.9.1
+requests==2.31.0
+
+# Background Tasks (minimal for Railway)
+celery==5.3.4
+redis==5.0.1
+
+# Logging & Monitoring (Railway compatible)
+structlog==23.2.0
+loguru==0.7.2
+sentry-sdk[fastapi]==1.38.0
+
+# Validation & Serialization
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# WebSocket & Real-time
+websockets==12.0
+
+# Environment & Config
+python-dotenv==1.0.0
+click==8.1.7
+
+# Arabic Text Processing (lightweight versions)
+arabic-reshaper==3.0.0
+python-bidi==0.4.2
+
+# Date/Time & Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# AI Integration
+openai==1.6.1
+anthropic==0.8.0
+
+# WhatsApp Business API
+twilio==9.7.0
+
+# Additional utilities (optimized versions)
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+slowapi==0.1.9
+python-slugify==8.0.1
+phonenumbers==8.13.26
+langdetect==1.0.9
+
+# Data handling (lighter than pandas for production)
+openpyxl==3.1.2
+
+# File handling
+aiofiles==23.2.0
+
+# Caching
+aiocache==0.12.2
+
+# JSON handling (fast serialization)
+orjson==3.10.12
+
+# Production-only dependencies
+prometheus-client==0.19.0
+prometheus-fastapi-instrumentator==6.1.0
