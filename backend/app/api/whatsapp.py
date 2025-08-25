@@ -51,6 +51,40 @@ async def whatsapp_webhook(request: Request):
             )
             customer = result.scalar_one_or_none()
             
+            if not customer:
+                # Create new customer automatically
+                from ..models.restaurant import Restaurant
+                
+                # Get default restaurant (first one)
+                restaurant_result = await session.execute(select(Restaurant))
+                restaurant = restaurant_result.scalar_one_or_none()
+                
+                if restaurant:
+                    # Get next customer number
+                    customer_count = await session.execute(
+                        select(Customer).where(Customer.restaurant_id == restaurant.id)
+                    )
+                    count = len(customer_count.scalars().all())
+                    customer_number = f"CUST-{count + 1:06d}"
+                    
+                    # Create new customer
+                    customer = Customer(
+                        customer_number=customer_number,
+                        phone_number=from_number,
+                        restaurant_id=restaurant.id,
+                        preferred_language='ar',  # Default to Arabic
+                        whatsapp_opt_in=True,
+                        first_name='',
+                        last_name='',
+                        visit_date=datetime.utcnow()
+                    )
+                    session.add(customer)
+                    await session.flush()  # Get customer ID
+                    logger.info(f"Created new customer {customer_number} for {from_number}")
+                else:
+                    logger.error("No restaurant found to assign customer to")
+                    return PlainTextResponse("Error", status_code=200)
+            
             if customer:
                 # Save incoming message
                 incoming_message = WhatsAppMessage(
@@ -86,7 +120,7 @@ async def whatsapp_webhook(request: Request):
                 
                 logger.info(f"Processed message from customer {customer.id}")
             else:
-                logger.warning(f"No customer found for phone number: {from_number}")
+                logger.warning(f"Could not process message from {from_number}")
         
         # Return 200 OK to Twilio
         return PlainTextResponse("OK", status_code=200)
