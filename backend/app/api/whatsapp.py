@@ -40,82 +40,35 @@ async def whatsapp_webhook(request: Request):
         
         # Extract message details
         from_number = form_data.get('From', '').replace('whatsapp:', '')
-        to_number = form_data.get('To', '').replace('whatsapp:', '')
         message_body = form_data.get('Body', '')
-        message_sid = form_data.get('MessageSid', '')
         
-        logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
+        logger.info(f"Message from {from_number}: {message_body}")
         
-        # Full AI conversation system
-        async with db_manager.get_session() as session:
-            # Find or create customer
-            clean_phone = ''.join(filter(str.isdigit, from_number))
+        # Generate simple AI response without database
+        ai_response = get_simple_ai_response(message_body)
+        
+        # Send response using Twilio
+        try:
+            from ..services.twilio_whatsapp import twilio_service
             
-            result = await session.execute(
-                select(Customer).where(
-                    Customer.phone_number.contains(clean_phone[-9:])
-                )
+            # Create minimal customer object
+            class SimpleCustomer:
+                phone_number = from_number
+                preferred_language = 'ar'
+            
+            customer = SimpleCustomer()
+            
+            await twilio_service.send_message(
+                customer=customer,
+                custom_message=ai_response
             )
-            customer = result.scalar_one_or_none()
             
-            if not customer:
-                # Auto-create customer
-                from ..models.restaurant import Restaurant
-                restaurant_result = await session.execute(select(Restaurant))
-                restaurant = restaurant_result.scalar_one_or_none()
-                
-                if restaurant:
-                    customer_count = await session.execute(
-                        select(Customer).where(Customer.restaurant_id == restaurant.id)
-                    )
-                    count = len(customer_count.scalars().all())
-                    customer_number = f"CUST-{count + 1:06d}"
-                    
-                    customer = Customer(
-                        customer_number=customer_number,
-                        phone_number=from_number,
-                        restaurant_id=restaurant.id,
-                        preferred_language='ar',
-                        whatsapp_opt_in=True,
-                        first_name='',
-                        last_name='',
-                        visit_date=datetime.utcnow()
-                    )
-                    session.add(customer)
-                    await session.flush()
-                    logger.info(f"Created customer {customer_number} for {from_number}")
+            logger.info(f"Sent response to {from_number}")
             
-            if customer:
-                # Save message
-                incoming_message = WhatsAppMessage(
-                    whatsapp_message_id=message_sid,
-                    message_type='text',
-                    content=message_body,
-                    language='ar',
-                    direction='inbound',
-                    status='received',
-                    sent_at=datetime.utcnow(),
-                    is_automated=False,
-                    restaurant_id=customer.restaurant_id,
-                    customer_id=customer.id,
-                    context={'from': from_number, 'to': to_number}
-                )
-                session.add(incoming_message)
-                
-                # Generate AI response
-                ai_response = await generate_ai_response(customer, message_body, session)
-                
-                # Send AI response
-                if ai_response:
-                    await twilio_service.send_message(
-                        customer=customer,
-                        custom_message=ai_response
-                    )
-                    logger.info(f"Sent AI response to {from_number}")
-                
-                await session.commit()
+        except Exception as send_error:
+            logger.error(f"Error sending message: {send_error}")
+            # Still return OK to Twilio
         
-        # Return 200 OK to Twilio
         return PlainTextResponse("OK", status_code=200)
         
     except Exception as e:
@@ -157,6 +110,61 @@ async def whatsapp_status_webhook(request: Request):
     except Exception as e:
         logger.error(f"Error processing status webhook: {str(e)}")
         return PlainTextResponse("Error", status_code=200)
+
+def get_simple_ai_response(message: str) -> str:
+    """Generate simple AI response without database dependencies"""
+    message_lower = message.lower().strip()
+    
+    # Greeting
+    if any(word in message_lower for word in ['مرحبا', 'السلام', 'أهلا', 'hello', 'hi']):
+        return """مرحباً بكم في مطعمنا! 🌟
+
+كيف يمكنني مساعدتكم؟
+• حجز طاولة  
+• قائمة الطعام
+• تقييم الخدمة
+
+نحن هنا لخدمتكم! 😊"""
+
+    # Booking
+    elif any(word in message_lower for word in ['حجز', 'طاولة', 'book']):
+        return """ممتاز! لحجز طاولة 🪑
+
+أخبرونا:
+📅 التاريخ؟
+🕐 الوقت؟  
+👥 كم شخص؟
+
+يمكنكم الاتصال بنا للحجز المباشر!"""
+
+    # Menu
+    elif any(word in message_lower for word in ['منيو', 'طعام', 'menu']):
+        return """قائمة طعامنا 🍽️
+
+🥙 أطباق رئيسية
+🍲 شوربات ومقبلات
+🥗 سلطات طازجة
+🧃 مشروبات
+🍰 حلويات
+
+ماذا تفضلون؟"""
+
+    # Thanks
+    elif any(word in message_lower for word in ['شكرا', 'شكراً', 'thank']):
+        return """العفو! يسعدنا خدمتكم 🙏
+
+نتطلع لاستقبالكم قريباً! ✨"""
+
+    # Default
+    else:
+        return """شكراً لتواصلكم! 📱
+
+يمكنكم كتابة:
+🔹 "حجز" للحجوزات
+🔹 "منيو" لقائمة الطعام
+🔹 "مرحبا" للترحيب
+
+كيف يمكنني مساعدتكم؟ 😊"""
 
 async def generate_ai_response(customer: Customer, message: str, session: AsyncSession) -> Optional[str]:
     """Generate intelligent AI response based on customer message"""
