@@ -41,6 +41,7 @@ redis==5.0.1
 structlog==23.2.0
 loguru==0.7.2
 sentry-sdk[fastapi]==1.38.0
+python-json-logger==2.0.7
 
 # Validation & Serialization
 pydantic==2.5.0
