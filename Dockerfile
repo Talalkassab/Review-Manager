@@ -43,7 +43,7 @@ WORKDIR /app
 RUN pip install --upgrade pip setuptools wheel
 
 # Copy requirements and install Python dependencies
-COPY backend/requirements.txt .
+COPY requirements.txt .
 
 # Install Python packages with specific strategies for problematic packages
 RUN pip install --no-cache-dir \
