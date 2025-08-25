@@ -223,12 +223,38 @@ async def whatsapp_webhook(request: Request):
                     logger.warning(f"⚠️ Could not load message history: {str(e)}")
                     previous_messages = []
             
-            # Generate response with context
-            ai_response = get_simple_ai_response(message_body, previous_messages)
-            debug_info["ai_response_status"] = "success"
-            debug_info["ai_response_length"] = len(ai_response)
+            # Try intelligent AI first, fallback to simple if needed
+            ai_response = None
+            try:
+                from ..services.restaurant_ai_agent import restaurant_ai_agent
+                
+                # Convert messages to proper format
+                conversation_history = []
+                for msg in previous_messages:
+                    conversation_history.append({
+                        "from": "customer",  # Assume previous messages are from customer
+                        "body": msg
+                    })
+                
+                # Generate intelligent response
+                ai_response = await restaurant_ai_agent.generate_intelligent_response(
+                    message=message_body,
+                    conversation_history=conversation_history,
+                    customer_id=from_number.replace('+', ''),  # Use phone as customer ID
+                    language="ar"
+                )
+                debug_info["ai_response_status"] = "intelligent_ai_success"
+                logger.info(f"✅ STEP 4 SUCCESS: Intelligent AI response generated")
+                
+            except Exception as ai_error:
+                logger.warning(f"⚠️ Intelligent AI failed, using fallback: {str(ai_error)}")
+                # Fallback to simple AI
+                ai_response = get_simple_ai_response(message_body, previous_messages)
+                debug_info["ai_response_status"] = f"fallback_used: {str(ai_error)}"
+            
+            debug_info["ai_response_length"] = len(ai_response) if ai_response else 0
             debug_info["context_messages_count"] = len(previous_messages)
-            logger.info(f"✅ STEP 4 SUCCESS: AI response generated ({len(ai_response)} chars) with {len(previous_messages)} context messages")
+            logger.info(f"✅ STEP 4 SUCCESS: AI response generated ({len(ai_response) if ai_response else 0} chars) with {len(previous_messages)} context messages")
         except Exception as e:
             logger.error(f"❌ STEP 4 FAILED: AI response error: {str(e)}")
             debug_info["ai_response_status"] = f"failed: {str(e)}"

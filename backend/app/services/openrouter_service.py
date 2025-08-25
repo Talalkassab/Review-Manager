@@ -12,10 +12,9 @@ import httpx
 from dataclasses import dataclass
 from enum import Enum
 
-from ..core.config import get_settings
+from ..core.config import settings
 from ..core.logging import get_logger
 
-settings = get_settings()
 logger = get_logger(__name__)
 
 
@@ -52,9 +51,9 @@ class OpenRouterService:
     
     def __init__(self):
         self.base_url = "https://openrouter.ai/api/v1"
-        self.api_key = settings.OPENROUTER_API_KEY
-        self.app_name = settings.OPENROUTER_APP_NAME
-        self.app_url = settings.OPENROUTER_APP_URL
+        self.api_key = settings.openrouter.OPENROUTER_API_KEY
+        self.app_name = getattr(settings.openrouter, 'OPENROUTER_APP_NAME', 'Restaurant AI Agent')
+        self.app_url = getattr(settings.openrouter, 'OPENROUTER_APP_URL', 'https://restaurant-ai.com')
         
         # Model configurations
         self.models = {
