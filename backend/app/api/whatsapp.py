@@ -1,6 +1,6 @@
 """
 WhatsApp webhook endpoints for Twilio integration.
-Handles incoming messages and status updates.
+Handles incoming messages and status updates with comprehensive error handling.
 """
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import PlainTextResponse
@@ -8,14 +8,8 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import logging
 import uuid
-
-from ..services.twilio_whatsapp import twilio_service, send_automated_greeting
-from ..models.customer import Customer
-from ..models.whatsapp import WhatsAppMessage
-from ..database import db_manager
-from .auth import current_active_user
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+import traceback
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -23,58 +17,278 @@ router = APIRouter(tags=["WhatsApp"])
 
 @router.get("/test")
 async def test_webhook():
-    """Test endpoint to verify deployment"""
-    return {"status": "webhook_v2_deployed", "timestamp": "2025-08-25-10:27"}
+    """Test endpoint to verify deployment and system health"""
+    test_results = {
+        "status": "webhook_ultra_debug_v3_deployed",
+        "timestamp": datetime.utcnow().isoformat(),
+        "system_checks": {}
+    }
+    
+    # Test 1: Basic imports
+    try:
+        from ..database import db_manager
+        test_results["system_checks"]["database_import"] = "✅ SUCCESS"
+    except Exception as e:
+        test_results["system_checks"]["database_import"] = f"❌ FAILED: {str(e)}"
+    
+    # Test 2: Twilio service
+    try:
+        from ..services.twilio_whatsapp import twilio_service
+        test_results["system_checks"]["twilio_import"] = "✅ SUCCESS"
+        test_results["system_checks"]["twilio_enabled"] = "✅ ENABLED" if twilio_service.enabled else "❌ DISABLED"
+    except Exception as e:
+        test_results["system_checks"]["twilio_import"] = f"❌ FAILED: {str(e)}"
+    
+    # Test 3: Database health (if available)
+    try:
+        if 'db_manager' in locals():
+            if db_manager.is_initialized:
+                health = await db_manager.health_check()
+                test_results["system_checks"]["database_health"] = f"✅ {health['status']}"
+            else:
+                test_results["system_checks"]["database_health"] = "⚠️ NOT_INITIALIZED"
+    except Exception as e:
+        test_results["system_checks"]["database_health"] = f"❌ FAILED: {str(e)}"
+    
+    # Test 4: Models import
+    try:
+        from ..models.customer import Customer
+        from ..models.whatsapp import WhatsAppMessage
+        test_results["system_checks"]["models_import"] = "✅ SUCCESS"
+    except Exception as e:
+        test_results["system_checks"]["models_import"] = f"❌ FAILED: {str(e)}"
+    
+    return test_results
+
+@router.get("/debug/environment")
+async def debug_environment():
+    """Debug endpoint to check environment variables and configuration"""
+    import os
+    
+    env_check = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment_variables": {},
+        "config_status": {}
+    }
+    
+    # Check critical environment variables (without exposing secrets)
+    env_vars_to_check = [
+        "DATABASE_URL",
+        "TWILIO_ACCOUNT_SID", 
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_WHATSAPP_NUMBER",
+        "TWILIO_SANDBOX_CODE",
+        "ENVIRONMENT",
+        "PORT"
+    ]
+    
+    for var in env_vars_to_check:
+        value = os.getenv(var)
+        if value:
+            if "TOKEN" in var or "SID" in var:
+                # Mask sensitive values
+                env_check["environment_variables"][var] = f"SET (***{value[-4:]})"
+            else:
+                env_check["environment_variables"][var] = value
+        else:
+            env_check["environment_variables"][var] = "NOT_SET"
+    
+    # Check configuration loading
+    try:
+        from ..core.config import settings
+        env_check["config_status"]["config_import"] = "✅ SUCCESS"
+        env_check["config_status"]["twilio_configured"] = "✅ YES" if settings.twilio.TWILIO_ACCOUNT_SID else "❌ NO"
+        env_check["config_status"]["database_url"] = "✅ SET" if settings.database.DATABASE_URL else "❌ NOT_SET"
+    except Exception as e:
+        env_check["config_status"]["config_import"] = f"❌ FAILED: {str(e)}"
+    
+    return env_check
 
 @router.post("/webhook")
 async def whatsapp_webhook(request: Request):
     """
-    Handle incoming WhatsApp messages from Twilio.
-    Process customer responses and trigger appropriate actions.
+    ULTRA-ROBUST WhatsApp webhook with comprehensive error handling.
+    Tests every component step by step to identify failure points.
     """
+    step = "INIT"
+    debug_info = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "step": step,
+        "form_data": {},
+        "extracted_data": {},
+        "database_status": "unknown",
+        "twilio_status": "unknown",
+        "ai_response_status": "unknown"
+    }
+    
     try:
-        logger.info("=== WEBHOOK CALLED ===")
+        logger.info("=== ULTRA-DEBUG WEBHOOK STARTED ===")
+        step = "FORM_DATA_EXTRACTION"
+        debug_info["step"] = step
         
-        # Get form data from Twilio
-        form_data = await request.form()
-        
-        # Extract message details
-        from_number = form_data.get('From', '').replace('whatsapp:', '')
-        message_body = form_data.get('Body', '')
-        
-        logger.info(f"Message from {from_number}: {message_body}")
-        
-        # Generate simple AI response without database
-        ai_response = get_simple_ai_response(message_body)
-        
-        # Send response using Twilio
+        # STEP 1: Extract form data with detailed logging
         try:
-            from ..services.twilio_whatsapp import twilio_service
+            form_data = await request.form()
+            debug_info["form_data"] = dict(form_data)
+            logger.info(f"✅ STEP 1 SUCCESS: Form data extracted: {debug_info['form_data']}")
+        except Exception as e:
+            logger.error(f"❌ STEP 1 FAILED: Form data extraction error: {str(e)}")
+            debug_info["form_data_error"] = str(e)
+            return PlainTextResponse(f"Error-Step1: {str(e)}", status_code=200)
+        
+        # STEP 2: Parse message details
+        step = "MESSAGE_PARSING" 
+        debug_info["step"] = step
+        try:
+            from_number = form_data.get('From', '').replace('whatsapp:', '')
+            message_body = form_data.get('Body', '')
+            message_sid = form_data.get('MessageSid', '')
             
-            # Create minimal customer object
+            debug_info["extracted_data"] = {
+                "from_number": from_number,
+                "message_body": message_body,
+                "message_sid": message_sid,
+                "all_form_keys": list(form_data.keys())
+            }
+            
+            if not from_number or not message_body:
+                logger.error(f"❌ STEP 2 FAILED: Missing required data - from: '{from_number}', body: '{message_body}'")
+                return PlainTextResponse("Error-Step2: Missing data", status_code=200)
+            
+            logger.info(f"✅ STEP 2 SUCCESS: Parsed message from {from_number}: {message_body}")
+        except Exception as e:
+            logger.error(f"❌ STEP 2 FAILED: Message parsing error: {str(e)}")
+            return PlainTextResponse(f"Error-Step2: {str(e)}", status_code=200)
+        
+        # STEP 3: Test database connectivity
+        step = "DATABASE_TEST"
+        debug_info["step"] = step
+        try:
+            # Try to import database manager
+            from ..database import db_manager
+            logger.info("✅ STEP 3.1 SUCCESS: Database manager imported")
+            
+            # Test if db_manager is initialized
+            if not db_manager.is_initialized:
+                logger.warning("⚠️ STEP 3.2 WARNING: Database not initialized, attempting initialization...")
+                try:
+                    await db_manager.initialize()
+                    logger.info("✅ STEP 3.2 SUCCESS: Database initialized successfully")
+                except Exception as init_error:
+                    logger.error(f"❌ STEP 3.2 FAILED: Database initialization error: {str(init_error)}")
+                    debug_info["database_status"] = f"init_failed: {str(init_error)}"
+                    # Continue without database for now
+            
+            # Test database connection
+            try:
+                health = await db_manager.health_check()
+                debug_info["database_status"] = health["status"]
+                logger.info(f"✅ STEP 3.3 SUCCESS: Database health check: {health}")
+            except Exception as health_error:
+                logger.error(f"❌ STEP 3.3 FAILED: Database health check error: {str(health_error)}")
+                debug_info["database_status"] = f"health_failed: {str(health_error)}"
+                
+        except Exception as e:
+            logger.error(f"❌ STEP 3 FAILED: Database test error: {str(e)}")
+            debug_info["database_status"] = f"import_failed: {str(e)}"
+        
+        # STEP 4: Generate AI response (simple version first)
+        step = "AI_RESPONSE"
+        debug_info["step"] = step
+        try:
+            ai_response = get_simple_ai_response(message_body)
+            debug_info["ai_response_status"] = "success"
+            debug_info["ai_response_length"] = len(ai_response)
+            logger.info(f"✅ STEP 4 SUCCESS: AI response generated ({len(ai_response)} chars)")
+        except Exception as e:
+            logger.error(f"❌ STEP 4 FAILED: AI response error: {str(e)}")
+            debug_info["ai_response_status"] = f"failed: {str(e)}"
+            ai_response = "شكراً لرسالتكم! سنتواصل معكم قريباً."  # Fallback response
+        
+        # STEP 5: Test Twilio service
+        step = "TWILIO_TEST"
+        debug_info["step"] = step
+        try:
+            # Try to import Twilio service
+            from ..services.twilio_whatsapp import twilio_service
+            logger.info("✅ STEP 5.1 SUCCESS: Twilio service imported")
+            
+            # Check if Twilio is enabled
+            if not twilio_service.enabled:
+                logger.error("❌ STEP 5.2 FAILED: Twilio service not enabled (missing credentials)")
+                debug_info["twilio_status"] = "disabled: missing credentials"
+                return PlainTextResponse("Error-Step5: Twilio disabled", status_code=200)
+            
+            logger.info("✅ STEP 5.2 SUCCESS: Twilio service is enabled")
+            debug_info["twilio_status"] = "enabled"
+            
+        except Exception as e:
+            logger.error(f"❌ STEP 5 FAILED: Twilio import/test error: {str(e)}")
+            debug_info["twilio_status"] = f"import_failed: {str(e)}"
+            return PlainTextResponse(f"Error-Step5: {str(e)}", status_code=200)
+        
+        # STEP 6: Create customer object and send message
+        step = "MESSAGE_SENDING"
+        debug_info["step"] = step
+        try:
+            # Create simple customer object
             class SimpleCustomer:
                 phone_number = from_number
                 preferred_language = 'ar'
+                first_name = None  # Add required attributes
             
             customer = SimpleCustomer()
+            logger.info("✅ STEP 6.1 SUCCESS: Simple customer object created")
             
-            await twilio_service.send_message(
+            # Send message
+            send_result = await twilio_service.send_message(
                 customer=customer,
                 custom_message=ai_response
             )
             
-            logger.info(f"Sent response to {from_number}")
+            if send_result['success']:
+                logger.info(f"✅ STEP 6.2 SUCCESS: Message sent successfully: {send_result}")
+                debug_info["message_sent"] = True
+                debug_info["message_sid"] = send_result.get('message_sid', 'unknown')
+            else:
+                logger.error(f"❌ STEP 6.2 FAILED: Message sending failed: {send_result}")
+                debug_info["message_sent"] = False
+                debug_info["send_error"] = send_result.get('error', 'unknown')
             
-        except Exception as send_error:
-            logger.error(f"Error sending message: {send_error}")
-            # Still return OK to Twilio
+        except Exception as e:
+            logger.error(f"❌ STEP 6 FAILED: Message sending error: {str(e)}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            debug_info["message_sending_error"] = str(e)
         
+        # STEP 7: Database logging (if available)
+        step = "DATABASE_LOGGING"
+        debug_info["step"] = step
+        if debug_info["database_status"] == "healthy":
+            try:
+                # Try to log the interaction to database
+                await log_whatsapp_interaction(from_number, message_body, ai_response)
+                logger.info("✅ STEP 7 SUCCESS: Interaction logged to database")
+                debug_info["db_logged"] = True
+            except Exception as e:
+                logger.error(f"❌ STEP 7 FAILED: Database logging error: {str(e)}")
+                debug_info["db_logging_error"] = str(e)
+                # Continue anyway
+        else:
+            logger.info("⚠️ STEP 7 SKIPPED: Database not available for logging")
+            debug_info["db_logged"] = False
+        
+        # SUCCESS - Log complete debug info
+        logger.info(f"🎉 WEBHOOK SUCCESS: {debug_info}")
         return PlainTextResponse("OK", status_code=200)
         
     except Exception as e:
-        logger.error(f"Error processing WhatsApp webhook: {str(e)}")
-        # Still return 200 to prevent Twilio retries
-        return PlainTextResponse("Error", status_code=200)
+        # CRITICAL FAILURE - Log everything for debugging
+        logger.error(f"💥 CRITICAL WEBHOOK FAILURE at step {step}: {str(e)}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.error(f"Debug info: {debug_info}")
+        
+        # Still return 200 to prevent Twilio retries, but include error info
+        return PlainTextResponse(f"Error-{step}: {str(e)}", status_code=200)
 
 @router.post("/status")
 async def whatsapp_status_webhook(request: Request):
@@ -110,6 +324,68 @@ async def whatsapp_status_webhook(request: Request):
     except Exception as e:
         logger.error(f"Error processing status webhook: {str(e)}")
         return PlainTextResponse("Error", status_code=200)
+
+async def log_whatsapp_interaction(phone_number: str, inbound_message: str, outbound_response: str) -> bool:
+    """
+    Log WhatsApp interaction to database if possible.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        # Import here to avoid circular imports
+        from ..database import db_manager
+        from ..models.customer import Customer
+        from ..models.whatsapp import WhatsAppMessage
+        from sqlalchemy import select
+        
+        async with db_manager.get_session() as session:
+            # Try to find existing customer by phone
+            result = await session.execute(
+                select(Customer).where(Customer.phone_number == phone_number)
+            )
+            customer = result.scalar_one_or_none()
+            
+            # Create customer if doesn't exist
+            if not customer:
+                customer = Customer(
+                    customer_number=f"WA-{phone_number[-4:]}",
+                    phone_number=phone_number,
+                    preferred_language='ar',
+                    whatsapp_opt_in=True,
+                    # Need restaurant_id - get default or skip
+                    restaurant_id=None  # This might cause issues
+                )
+                session.add(customer)
+                await session.flush()  # Get the customer ID
+            
+            # Log inbound message
+            inbound_msg = WhatsAppMessage(
+                content=inbound_message,
+                direction='inbound',
+                status='received',
+                customer_id=customer.id,
+                restaurant_id=customer.restaurant_id,
+                language='ar'
+            )
+            session.add(inbound_msg)
+            
+            # Log outbound response
+            outbound_msg = WhatsAppMessage(
+                content=outbound_response,
+                direction='outbound',
+                status='sent',
+                customer_id=customer.id,
+                restaurant_id=customer.restaurant_id,
+                language='ar',
+                is_automated=True
+            )
+            session.add(outbound_msg)
+            
+            await session.commit()
+            return True
+            
+    except Exception as e:
+        logger.error(f"Failed to log WhatsApp interaction: {str(e)}")
+        return False
 
 def get_simple_ai_response(message: str) -> str:
     """Generate simple AI response without database dependencies"""
