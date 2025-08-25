@@ -197,14 +197,38 @@ async def whatsapp_webhook(request: Request):
             logger.error(f"❌ STEP 3 FAILED: Database test error: {str(e)}")
             debug_info["database_status"] = f"import_failed: {str(e)}"
         
-        # STEP 4: Generate AI response (simple version first)
+        # STEP 4: Generate AI response with context
         step = "AI_RESPONSE"
         debug_info["step"] = step
         try:
-            ai_response = get_simple_ai_response(message_body)
+            # Try to get conversation history from database
+            previous_messages = []
+            if debug_info["database_status"] == "healthy":
+                try:
+                    from ..database import db_manager
+                    from ..models.whatsapp import WhatsAppMessage
+                    from sqlalchemy import select
+                    
+                    async with db_manager.get_session() as session:
+                        # Get last 5 messages from this phone number
+                        stmt = select(WhatsAppMessage.content).where(
+                            WhatsAppMessage.context.contains(from_number)
+                        ).order_by(WhatsAppMessage.sent_at.desc()).limit(5)
+                        
+                        result = await session.execute(stmt)
+                        messages = result.scalars().all()
+                        previous_messages = list(reversed(messages))  # Oldest first
+                        logger.info(f"✅ Loaded {len(previous_messages)} previous messages for context")
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not load message history: {str(e)}")
+                    previous_messages = []
+            
+            # Generate response with context
+            ai_response = get_simple_ai_response(message_body, previous_messages)
             debug_info["ai_response_status"] = "success"
             debug_info["ai_response_length"] = len(ai_response)
-            logger.info(f"✅ STEP 4 SUCCESS: AI response generated ({len(ai_response)} chars)")
+            debug_info["context_messages_count"] = len(previous_messages)
+            logger.info(f"✅ STEP 4 SUCCESS: AI response generated ({len(ai_response)} chars) with {len(previous_messages)} context messages")
         except Exception as e:
             logger.error(f"❌ STEP 4 FAILED: AI response error: {str(e)}")
             debug_info["ai_response_status"] = f"failed: {str(e)}"
@@ -392,9 +416,25 @@ async def log_whatsapp_interaction(phone_number: str, inbound_message: str, outb
         logger.error(f"Failed to log WhatsApp interaction: {str(e)}")
         return False
 
-def get_simple_ai_response(message: str) -> str:
-    """Generate simple AI response without database dependencies"""
+def get_simple_ai_response(message: str, previous_messages: list = None) -> str:
+    """Generate contextual AI response with conversation memory"""
     message_lower = message.lower().strip()
+    
+    # Check conversation context if available
+    context = ""
+    if previous_messages:
+        # Look at last 3 messages to understand context
+        recent_context = previous_messages[-3:] if len(previous_messages) >= 3 else previous_messages
+        for msg in recent_context:
+            if 'حجز' in msg or 'book' in msg:
+                context = "booking"
+                break
+            elif 'منيو' in msg or 'menu' in msg or 'طعام' in msg:
+                context = "menu"
+                break
+            elif 'تقييم' in msg or 'rating' in msg:
+                context = "feedback"
+                break
     
     # Greeting
     if any(word in message_lower for word in ['مرحبا', 'السلام', 'أهلا', 'hello', 'hi']):
@@ -407,20 +447,62 @@ def get_simple_ai_response(message: str) -> str:
 
 نحن هنا لخدمتكم! 😊"""
 
-    # Booking
-    elif any(word in message_lower for word in ['حجز', 'طاولة', 'book']):
-        return """ممتاز! لحجز طاولة 🪑
+    # Booking flow
+    elif any(word in message_lower for word in ['حجز', 'طاولة', 'book']) or context == "booking":
+        # Check if message contains date/time/number info
+        if any(char.isdigit() for char in message):
+            # User is providing booking details
+            if any(word in message_lower for word in ['غدا', 'اليوم', 'tomorrow', 'today']):
+                return """ممتاز! استلمت التاريخ 📅
+
+الآن أخبرونا:
+🕐 في أي وقت؟
+👥 كم عدد الأشخاص؟"""
+            elif ':' in message or any(word in message_lower for word in ['صباح', 'مساء', 'ظهر']):
+                return """رائع! استلمت الوقت 🕐
+
+كم عدد الأشخاص؟ 👥"""
+            elif any(word in message_lower for word in ['شخص', 'اشخاص', 'people', 'person']):
+                return """ممتاز! تم استلام طلب الحجز ✅
+
+📅 التاريخ والوقت مسجل
+👥 عدد الأشخاص مسجل
+
+سنتواصل معكم للتأكيد قريباً!
+أو يمكنكم الاتصال: 📞"""
+        else:
+            return """ممتاز! لحجز طاولة 🪑
 
 أخبرونا:
-📅 التاريخ؟
-🕐 الوقت؟  
-👥 كم شخص؟
+📅 التاريخ؟ (مثال: غداً، الخميس)
+🕐 الوقت؟ (مثال: 8 مساءً)
+👥 كم شخص؟ (مثال: 4 أشخاص)
 
-يمكنكم الاتصال بنا للحجز المباشر!"""
+أو اكتبوا كل التفاصيل في رسالة واحدة!"""
 
-    # Menu
-    elif any(word in message_lower for word in ['منيو', 'طعام', 'menu']):
-        return """قائمة طعامنا 🍽️
+    # Menu flow
+    elif any(word in message_lower for word in ['منيو', 'طعام', 'menu']) or context == "menu":
+        # Check for specific menu items
+        if any(word in message_lower for word in ['رئيسية', 'main', 'اطباق رئيسية']):
+            return """🥙 الأطباق الرئيسية:
+
+• كبسة لحم - 45 ريال
+• مندي دجاج - 38 ريال  
+• برياني - 42 ريال
+• مشاوي مشكلة - 65 ريال
+
+هل تريدون معرفة المزيد عن أي طبق؟"""
+        elif any(word in message_lower for word in ['حلويات', 'حلو', 'dessert', 'sweet']):
+            return """🍰 الحلويات:
+
+• كنافة - 18 ريال
+• أم علي - 15 ريال
+• تشيز كيك - 22 ريال  
+• آيس كريم - 12 ريال
+
+أي حلوى تفضلون؟"""
+        else:
+            return """قائمة طعامنا 🍽️
 
 🥙 أطباق رئيسية
 🍲 شوربات ومقبلات
@@ -428,24 +510,55 @@ def get_simple_ai_response(message: str) -> str:
 🧃 مشروبات
 🍰 حلويات
 
-ماذا تفضلون؟"""
+اختاروا القسم الذي تريدون! (مثال: "الأطباق الرئيسية")"""
 
     # Thanks
     elif any(word in message_lower for word in ['شكرا', 'شكراً', 'thank']):
-        return """العفو! يسعدنا خدمتكم 🙏
+        if context == "booking":
+            return """العفو! حجزكم مهم لنا 🙏
+
+سنتواصل معكم قريباً للتأكيد.
+نتطلع لاستقبالكم! ✨"""
+        else:
+            return """العفو! يسعدنا خدمتكم 🙏
 
 نتطلع لاستقبالكم قريباً! ✨"""
 
-    # Default
+    # Handle unexpected input based on context
     else:
-        return """شكراً لتواصلكم! 📱
+        if context == "booking":
+            # User is in booking flow but sent unexpected text
+            return """عذراً، لم أفهم التفاصيل 🤔
 
-يمكنكم كتابة:
-🔹 "حجز" للحجوزات
-🔹 "منيو" لقائمة الطعام
-🔹 "مرحبا" للترحيب
+للحجز، أرسلوا لنا:
+📅 التاريخ المطلوب
+🕐 الوقت المفضل
+👥 عدد الأشخاص
 
-كيف يمكنني مساعدتكم؟ 😊"""
+مثال: "أريد حجز طاولة غداً الساعة 8 مساءً لـ 4 أشخاص" """
+        
+        elif context == "menu":
+            # User is asking about menu but unclear
+            return """لم أفهم طلبكم بالضبط 🤔
+
+هل تريدون:
+• الأطباق الرئيسية؟
+• الحلويات؟  
+• المشروبات؟
+• الأسعار؟
+
+اختاروا ما تريدون معرفته!"""
+        
+        else:
+            # No context - provide helpful options
+            return """عذراً، لم أفهم طلبكم 🤔
+
+يمكنني مساعدتكم في:
+🔹 حجز طاولة - اكتبوا "حجز"
+🔹 قائمة الطعام - اكتبوا "منيو"
+🔹 تقييم خدمتنا - اكتبوا "تقييم"
+
+أو اكتبوا سؤالكم بوضوح وسأحاول المساعدة!"""
 
 async def generate_ai_response(customer: Any, message: str, session: AsyncSession) -> Optional[str]:
     """Generate intelligent AI response based on customer message"""
