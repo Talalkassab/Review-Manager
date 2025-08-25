@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["WhatsApp"])
 
+@router.get("/test")
+async def test_webhook():
+    """Test endpoint to verify deployment"""
+    return {"status": "webhook_v2_deployed", "timestamp": "2025-08-25-10:27"}
+
 @router.post("/webhook")
 async def whatsapp_webhook(request: Request):
     """
@@ -28,6 +33,15 @@ async def whatsapp_webhook(request: Request):
     Process customer responses and trigger appropriate actions.
     """
     try:
+        # Debug logging
+        logger.info("=== WEBHOOK CALLED ===")
+        
+        # Get raw body for debugging
+        body = await request.body()
+        logger.info(f"Raw body: {body}")
+        
+        # Reset request body for form parsing
+        request._body = body
         # Get form data from Twilio
         form_data = await request.form()
         
