@@ -33,15 +33,8 @@ async def whatsapp_webhook(request: Request):
     Process customer responses and trigger appropriate actions.
     """
     try:
-        # Debug logging
         logger.info("=== WEBHOOK CALLED ===")
         
-        # Get raw body for debugging
-        body = await request.body()
-        logger.info(f"Raw body: {body}")
-        
-        # Reset request body for form parsing
-        request._body = body
         # Get form data from Twilio
         form_data = await request.form()
         
@@ -53,88 +46,32 @@ async def whatsapp_webhook(request: Request):
         
         logger.info(f"Received WhatsApp message from {from_number}: {message_body}")
         
-        # Find customer by phone number
-        async with db_manager.get_session() as session:
-            # Clean phone number for database lookup
-            clean_phone = ''.join(filter(str.isdigit, from_number))
+        # Simple response for now - just log and return OK
+        logger.info(f"Processing message: {message_body} from {from_number}")
+        
+        # Try to send a simple response back
+        try:
+            simple_response = "مرحبا! شكرا لرسالتك 👋"  # Hello! Thank you for your message
             
-            result = await session.execute(
-                select(Customer).where(
-                    Customer.phone_number.contains(clean_phone[-9:])  # Last 9 digits
-                )
+            # Use Twilio service to send response
+            from ..services.twilio_whatsapp import twilio_service
+            
+            # Create a minimal customer object for testing
+            class SimpleCustomer:
+                phone_number = from_number
+                preferred_language = 'ar'
+            
+            test_customer = SimpleCustomer()
+            
+            await twilio_service.send_message(
+                customer=test_customer,
+                custom_message=simple_response
             )
-            customer = result.scalar_one_or_none()
             
-            if not customer:
-                # Create new customer automatically
-                from ..models.restaurant import Restaurant
-                
-                # Get default restaurant (first one)
-                restaurant_result = await session.execute(select(Restaurant))
-                restaurant = restaurant_result.scalar_one_or_none()
-                
-                if restaurant:
-                    # Get next customer number
-                    customer_count = await session.execute(
-                        select(Customer).where(Customer.restaurant_id == restaurant.id)
-                    )
-                    count = len(customer_count.scalars().all())
-                    customer_number = f"CUST-{count + 1:06d}"
-                    
-                    # Create new customer
-                    customer = Customer(
-                        customer_number=customer_number,
-                        phone_number=from_number,
-                        restaurant_id=restaurant.id,
-                        preferred_language='ar',  # Default to Arabic
-                        whatsapp_opt_in=True,
-                        first_name='',
-                        last_name='',
-                        visit_date=datetime.utcnow()
-                    )
-                    session.add(customer)
-                    await session.flush()  # Get customer ID
-                    logger.info(f"Created new customer {customer_number} for {from_number}")
-                else:
-                    logger.error("No restaurant found to assign customer to")
-                    return PlainTextResponse("Error", status_code=200)
+            logger.info(f"Sent simple response to {from_number}")
             
-            if customer:
-                # Save incoming message
-                incoming_message = WhatsAppMessage(
-                    whatsapp_message_id=message_sid,
-                    message_type='text',
-                    content=message_body,
-                    language=customer.preferred_language or 'ar',
-                    direction='inbound',
-                    status='received',
-                    sent_at=datetime.utcnow(),
-                    is_automated=False,
-                    restaurant_id=customer.restaurant_id,
-                    customer_id=customer.id,
-                    context={'from': from_number, 'to': to_number}
-                )
-                session.add(incoming_message)
-                
-                # Process customer response
-                response_message = await process_customer_response(
-                    customer, 
-                    message_body, 
-                    session
-                )
-                
-                # Send response if needed
-                if response_message:
-                    await twilio_service.send_message(
-                        customer=customer,
-                        custom_message=response_message
-                    )
-                
-                await session.commit()
-                
-                logger.info(f"Processed message from customer {customer.id}")
-            else:
-                logger.warning(f"Could not process message from {from_number}")
+        except Exception as e:
+            logger.error(f"Error sending response: {str(e)}")
         
         # Return 200 OK to Twilio
         return PlainTextResponse("OK", status_code=200)
