@@ -62,8 +62,8 @@ python-bidi==0.4.2
 python-dateutil==2.8.2
 pytz==2023.3
 
-# AI Integration
-openai==1.6.1
+# AI Integration (updated for crewai compatibility)
+openai>=1.7.1,<2.0.0
 anthropic==0.8.0
 
 # WhatsApp Business API
