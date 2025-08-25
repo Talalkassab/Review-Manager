@@ -78,7 +78,8 @@ python-slugify==8.0.1
 phonenumbers==8.13.26
 langdetect==1.0.9
 
-# Data handling (lighter than pandas for production)
+# Data handling
+pandas==2.1.4
 openpyxl==3.1.2
 
 # File handling
